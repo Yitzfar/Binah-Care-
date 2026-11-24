@@ -1,0 +1,6 @@
+{
+  "name": "BINAH CARE",
+  "description": "AI-powered ABA services coordination platform in New York with Parent, Staff, and Admin portals, bilingual English/Yiddish support, and financial analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

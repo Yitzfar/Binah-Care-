@@ -1,0 +1,627 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'arledigt@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isStaff() {
+      return isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff'
+      );
+    }
+
+    function isPartner() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'partner';
+    }
+
+    function partnerCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.contractCompanyId;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isValidChecklist(c) {
+      return c is map &&
+        c.keys().hasAll(['rx', 'evaluation', 'insurance', 'iep', 'hipaaConsent']) &&
+        c.keys().hasOnly(['rx', 'evaluation', 'insurance', 'iep', 'hipaaConsent']) &&
+        c.rx in ['missing', 'uploaded', 'verified'] &&
+        c.evaluation in ['missing', 'uploaded', 'verified'] &&
+        c.insurance in ['missing', 'uploaded', 'verified'] &&
+        c.iep in ['missing', 'uploaded', 'verified'] &&
+        c.hipaaConsent in ['missing', 'uploaded', 'verified'];
+    }
+
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'preferredLanguage', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'preferredLanguage', 'phone', 'hipaaAcceptedAt', 'assignedClientIds', 'contractCompanyId', 'contractCompanyName', 'createdAt', 'updatedAt']) &&
+        isValidId(data.uid) &&
+        data.uid == userId &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 200 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.role in ['parent', 'staff', 'partner', 'admin'] &&
+        data.preferredLanguage in ['en', 'yi'] &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 32)) &&
+        (!('hipaaAcceptedAt' in data) || (data.hipaaAcceptedAt is string && data.hipaaAcceptedAt.size() <= 64)) &&
+        (!('assignedClientIds' in data) || (data.assignedClientIds is list && data.assignedClientIds.size() <= 50 && (data.assignedClientIds.size() == 0 || data.assignedClientIds[0] is string))) &&
+        (!('contractCompanyId' in data) || (data.contractCompanyId is string && data.contractCompanyId.size() <= 128)) &&
+        (!('contractCompanyName' in data) || (data.contractCompanyName is string && data.contractCompanyName.size() <= 120)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidClient(data, clientId) {
+      return data.keys().hasAll(['clientId', 'parentUid', 'parentName', 'childFirstName', 'childLastName', 'preferredLanguage', 'status', 'checklist', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['clientId', 'parentUid', 'parentName', 'parentEmail', 'parentPhone', 'childFirstName', 'childLastName', 'childDob', 'borough', 'preferredLanguage', 'contractCompanyId', 'contractCompanyName', 'partnerUids', 'assignedBtId', 'assignedBtName', 'assignedStaffUids', 'status', 'authorizedWeeklyHours', 'checklist', 'notes', 'createdAt', 'updatedAt']) &&
+        isValidId(data.clientId) &&
+        data.clientId == clientId &&
+        isValidId(data.parentUid) &&
+        data.parentName is string && data.parentName.size() >= 1 && data.parentName.size() <= 120 &&
+        (!('parentEmail' in data) || (data.parentEmail is string && data.parentEmail.size() <= 200)) &&
+        (!('parentPhone' in data) || (data.parentPhone is string && data.parentPhone.size() <= 32)) &&
+        data.childFirstName is string && data.childFirstName.size() >= 1 && data.childFirstName.size() <= 80 &&
+        data.childLastName is string && data.childLastName.size() >= 1 && data.childLastName.size() <= 80 &&
+        (!('childDob' in data) || (data.childDob is string && data.childDob.size() <= 20)) &&
+        (!('borough' in data) || (data.borough is string && data.borough.size() <= 80)) &&
+        data.preferredLanguage in ['en', 'yi'] &&
+        (!('contractCompanyId' in data) || (data.contractCompanyId is string && data.contractCompanyId.size() <= 128)) &&
+        (!('contractCompanyName' in data) || (data.contractCompanyName is string && data.contractCompanyName.size() <= 120)) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        (!('assignedBtId' in data) || (data.assignedBtId is string && data.assignedBtId.size() <= 128)) &&
+        (!('assignedBtName' in data) || (data.assignedBtName is string && data.assignedBtName.size() <= 120)) &&
+        (!('assignedStaffUids' in data) || (data.assignedStaffUids is list && data.assignedStaffUids.size() <= 10 && (data.assignedStaffUids.size() == 0 || data.assignedStaffUids[0] is string))) &&
+        data.status in ['intake_submitted', 'document_review', 'insurance_auth', 'bt_matching', 'active_services'] &&
+        (!('authorizedWeeklyHours' in data) || (data.authorizedWeeklyHours is number && data.authorizedWeeklyHours >= 0 && data.authorizedWeeklyHours <= 60)) &&
+        isValidChecklist(data.checklist) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidClientDocument(data, clientId, documentId) {
+      return data.keys().hasAll(['documentId', 'clientId', 'parentUid', 'docType', 'fileName', 'verificationStatus', 'uploadedByUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['documentId', 'clientId', 'parentUid', 'partnerUids', 'docType', 'fileName', 'mimeType', 'summary', 'extractedFields', 'verificationStatus', 'uploadedByUid', 'createdAt', 'updatedAt']) &&
+        isValidId(data.documentId) &&
+        data.documentId == documentId &&
+        isValidId(data.clientId) &&
+        data.clientId == clientId &&
+        isValidId(data.parentUid) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        data.docType in ['rx', 'evaluation', 'insurance', 'iep', 'hipaaConsent', 'other'] &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 200 &&
+        (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 100)) &&
+        (!('summary' in data) || (data.summary is string && data.summary.size() <= 1500)) &&
+        (!('extractedFields' in data) || data.extractedFields is map) &&
+        data.verificationStatus in ['pending_review', 'verified', 'needs_resubmission'] &&
+        isValidId(data.uploadedByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStaffRoster(data, staffId) {
+      return data.keys().hasAll(['staffId', 'displayName', 'title', 'active', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['staffId', 'uid', 'displayName', 'title', 'languages', 'borough', 'active', 'createdAt', 'updatedAt']) &&
+        isValidId(data.staffId) &&
+        data.staffId == staffId &&
+        (!('uid' in data) || (data.uid is string && data.uid.size() <= 128)) &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+        (!('languages' in data) || (data.languages is list && data.languages.size() <= 10 && (data.languages.size() == 0 || data.languages[0] is string))) &&
+        (!('borough' in data) || (data.borough is string && data.borough.size() <= 80)) &&
+        data.active is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidBtCompensation(data, staffId) {
+      return data.keys().hasAll(['staffId', 'btName', 'hourlyPayRate', 'updatedAt']) &&
+        data.keys().hasOnly(['staffId', 'btName', 'hourlyPayRate', 'updatedAt']) &&
+        isValidId(data.staffId) &&
+        data.staffId == staffId &&
+        data.btName is string && data.btName.size() >= 1 && data.btName.size() <= 120 &&
+        data.hourlyPayRate is number && data.hourlyPayRate >= 0 && data.hourlyPayRate <= 500 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidContractCompany(data, companyId) {
+      return data.keys().hasAll(['companyId', 'name', 'billingRatePerHour', 'defaultBtPayPerHour', 'active', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['companyId', 'name', 'contactName', 'contactEmail', 'contactPhone', 'billingRatePerHour', 'defaultBtPayPerHour', 'paymentTerms', 'partnerUids', 'autoTriggerOnSignup', 'autoTriggerOnActions', 'active', 'createdAt', 'updatedAt']) &&
+        isValidId(data.companyId) &&
+        data.companyId == companyId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        (!('contactName' in data) || (data.contactName is string && data.contactName.size() <= 120)) &&
+        (!('contactEmail' in data) || (data.contactEmail is string && data.contactEmail.size() <= 200)) &&
+        (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 32)) &&
+        data.billingRatePerHour is number && data.billingRatePerHour >= 0 && data.billingRatePerHour <= 1000 &&
+        data.defaultBtPayPerHour is number && data.defaultBtPayPerHour >= 0 && data.defaultBtPayPerHour <= 500 &&
+        (!('paymentTerms' in data) || (data.paymentTerms is string && data.paymentTerms.size() <= 120)) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        (!('autoTriggerOnSignup' in data) || data.autoTriggerOnSignup is bool) &&
+        (!('autoTriggerOnActions' in data) || data.autoTriggerOnActions is bool) &&
+        data.active is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPartnerDirectory(data, companyId) {
+      return data.keys().hasAll(['companyId', 'name', 'autoTriggerOnSignup', 'autoTriggerOnActions', 'active', 'updatedAt']) &&
+        data.keys().hasOnly(['companyId', 'name', 'notificationEmail', 'notificationPhone', 'partnerUids', 'autoTriggerOnSignup', 'autoTriggerOnActions', 'active', 'updatedAt']) &&
+        isValidId(data.companyId) &&
+        data.companyId == companyId &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        (!('notificationEmail' in data) || (data.notificationEmail is string && data.notificationEmail.size() <= 200)) &&
+        (!('notificationPhone' in data) || (data.notificationPhone is string && data.notificationPhone.size() <= 32)) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        data.autoTriggerOnSignup is bool &&
+        data.autoTriggerOnActions is bool &&
+        data.active is bool &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSession(data, sessionId) {
+      return data.keys().hasAll(['sessionId', 'clientId', 'parentUid', 'btId', 'dateEt', 'startTimeEt', 'endTimeEt', 'scheduledHours', 'approvedBillableHours', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['sessionId', 'clientId', 'clientName', 'parentUid', 'contractCompanyId', 'contractCompanyName', 'partnerUids', 'btId', 'btUid', 'btName', 'dateEt', 'startTimeEt', 'endTimeEt', 'scheduledHours', 'approvedBillableHours', 'status', 'notes', 'approvedByUid', 'createdAt', 'updatedAt']) &&
+        isValidId(data.sessionId) &&
+        data.sessionId == sessionId &&
+        isValidId(data.clientId) &&
+        (!('clientName' in data) || (data.clientName is string && data.clientName.size() <= 160)) &&
+        isValidId(data.parentUid) &&
+        (!('contractCompanyId' in data) || (data.contractCompanyId is string && data.contractCompanyId.size() <= 128)) &&
+        (!('contractCompanyName' in data) || (data.contractCompanyName is string && data.contractCompanyName.size() <= 120)) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        isValidId(data.btId) &&
+        (!('btUid' in data) || (data.btUid is string && data.btUid.size() <= 128)) &&
+        (!('btName' in data) || (data.btName is string && data.btName.size() <= 120)) &&
+        data.dateEt is string && data.dateEt.size() >= 8 && data.dateEt.size() <= 20 &&
+        data.startTimeEt is string && data.startTimeEt.size() >= 4 && data.startTimeEt.size() <= 20 &&
+        data.endTimeEt is string && data.endTimeEt.size() >= 4 && data.endTimeEt.size() <= 20 &&
+        data.scheduledHours is number && data.scheduledHours > 0 && data.scheduledHours <= 16 &&
+        data.approvedBillableHours is number && data.approvedBillableHours >= 0 && data.approvedBillableHours <= 16 &&
+        data.status in ['scheduled', 'completed', 'approved_billable', 'cancelled'] &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        (!('approvedByUid' in data) || (data.approvedByUid is string && data.approvedByUid.size() <= 128)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPartnerPayment(data, paymentId) {
+      return data.keys().hasAll(['paymentId', 'contractCompanyId', 'contractCompanyName', 'amount', 'paymentDateEt', 'status', 'recordedByUid', 'createdAt']) &&
+        data.keys().hasOnly(['paymentId', 'contractCompanyId', 'contractCompanyName', 'amount', 'periodLabel', 'paymentDateEt', 'referenceNumber', 'status', 'notes', 'recordedByUid', 'createdAt']) &&
+        isValidId(data.paymentId) &&
+        data.paymentId == paymentId &&
+        isValidId(data.contractCompanyId) &&
+        data.contractCompanyName is string && data.contractCompanyName.size() >= 1 && data.contractCompanyName.size() <= 120 &&
+        data.amount is number && data.amount >= 0 && data.amount <= 10000000 &&
+        (!('periodLabel' in data) || (data.periodLabel is string && data.periodLabel.size() <= 80)) &&
+        data.paymentDateEt is string && data.paymentDateEt.size() >= 8 && data.paymentDateEt.size() <= 20 &&
+        (!('referenceNumber' in data) || (data.referenceNumber is string && data.referenceNumber.size() <= 80)) &&
+        data.status in ['received', 'pending'] &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        isValidId(data.recordedByUid) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidBtPayout(data, payoutId) {
+      return data.keys().hasAll(['payoutId', 'btId', 'btName', 'hoursPaid', 'hourlyRate', 'totalAmount', 'paymentDateEt', 'status', 'recordedByUid', 'createdAt']) &&
+        data.keys().hasOnly(['payoutId', 'btId', 'btName', 'hoursPaid', 'hourlyRate', 'totalAmount', 'periodLabel', 'paymentDateEt', 'status', 'notes', 'recordedByUid', 'createdAt']) &&
+        isValidId(data.payoutId) &&
+        data.payoutId == payoutId &&
+        isValidId(data.btId) &&
+        data.btName is string && data.btName.size() >= 1 && data.btName.size() <= 120 &&
+        data.hoursPaid is number && data.hoursPaid >= 0 && data.hoursPaid <= 1000 &&
+        data.hourlyRate is number && data.hourlyRate >= 0 && data.hourlyRate <= 500 &&
+        data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 1000000 &&
+        (!('periodLabel' in data) || (data.periodLabel is string && data.periodLabel.size() <= 80)) &&
+        data.paymentDateEt is string && data.paymentDateEt.size() >= 8 && data.paymentDateEt.size() <= 20 &&
+        data.status in ['paid', 'scheduled'] &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+        isValidId(data.recordedByUid) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidReminder(data, reminderId) {
+      return data.keys().hasAll(['reminderId', 'clientId', 'recipientRole', 'language', 'subject', 'body', 'status', 'createdByUid', 'createdAt']) &&
+        data.keys().hasOnly(['reminderId', 'targetUid', 'clientId', 'clientName', 'recipientRole', 'language', 'subject', 'body', 'status', 'createdByUid', 'createdAt']) &&
+        isValidId(data.reminderId) &&
+        data.reminderId == reminderId &&
+        (!('targetUid' in data) || (data.targetUid is string && data.targetUid.size() <= 128)) &&
+        isValidId(data.clientId) &&
+        (!('clientName' in data) || (data.clientName is string && data.clientName.size() <= 160)) &&
+        data.recipientRole in ['parent', 'staff'] &&
+        data.language in ['en', 'yi'] &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 200 &&
+        data.body is string && data.body.size() >= 1 && data.body.size() <= 2000 &&
+        data.status in ['sent', 'acknowledged'] &&
+        isValidId(data.createdByUid) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidBillingAlert(data, alertId) {
+      return data.keys().hasAll(['alertId', 'sessionId', 'clientId', 'sessionDateEt', 'scheduledHours', 'estimatedRevenue', 'hoursOverdue', 'recipientEmail', 'channel', 'emailStatus', 'status', 'createdByUid', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['alertId', 'sessionId', 'clientId', 'clientName', 'btName', 'contractCompanyName', 'sessionDateEt', 'sessionTimeRangeEt', 'scheduledHours', 'estimatedRevenue', 'hoursOverdue', 'recipientEmail', 'recipientPhone', 'channel', 'emailStatus', 'emailNote', 'smsStatus', 'smsNote', 'status', 'lastNotifiedAt', 'createdByUid', 'createdAt', 'updatedAt']) &&
+        isValidId(data.alertId) &&
+        data.alertId == alertId &&
+        isValidId(data.sessionId) &&
+        isValidId(data.clientId) &&
+        (!('clientName' in data) || (data.clientName is string && data.clientName.size() <= 160)) &&
+        (!('btName' in data) || (data.btName is string && data.btName.size() <= 120)) &&
+        (!('contractCompanyName' in data) || (data.contractCompanyName is string && data.contractCompanyName.size() <= 120)) &&
+        data.sessionDateEt is string && data.sessionDateEt.size() >= 8 && data.sessionDateEt.size() <= 20 &&
+        (!('sessionTimeRangeEt' in data) || (data.sessionTimeRangeEt is string && data.sessionTimeRangeEt.size() <= 45)) &&
+        data.scheduledHours is number && data.scheduledHours > 0 && data.scheduledHours <= 16 &&
+        data.estimatedRevenue is number && data.estimatedRevenue >= 0 && data.estimatedRevenue <= 100000 &&
+        data.hoursOverdue is number && data.hoursOverdue >= 0 && data.hoursOverdue <= 100000 &&
+        data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 200 &&
+        (!('recipientPhone' in data) || (data.recipientPhone is string && data.recipientPhone.size() <= 32)) &&
+        data.channel in ['dashboard', 'email_and_dashboard', 'sms_and_dashboard', 'email_sms_and_dashboard'] &&
+        data.emailStatus in ['sent', 'queued_no_smtp', 'failed', 'disabled'] &&
+        (!('emailNote' in data) || (data.emailNote is string && data.emailNote.size() <= 300)) &&
+        (!('smsStatus' in data) || data.smsStatus in ['sent', 'queued_no_sms', 'failed', 'disabled']) &&
+        (!('smsNote' in data) || (data.smsNote is string && data.smsNote.size() <= 300)) &&
+        data.status in ['active', 'acknowledged', 'resolved'] &&
+        (!('lastNotifiedAt' in data) || (data.lastNotifiedAt is string && data.lastNotifiedAt.size() <= 64)) &&
+        isValidId(data.createdByUid) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidAdminAlertSettings(data, settingId) {
+      return data.keys().hasAll(['settingId', 'alertEmail', 'notifyEmail', 'notifySms', 'updatedByUid', 'updatedAt']) &&
+        data.keys().hasOnly(['settingId', 'alertEmail', 'alertPhone', 'notifyEmail', 'notifySms', 'updatedByUid', 'updatedAt']) &&
+        isValidId(data.settingId) &&
+        data.settingId == settingId &&
+        data.alertEmail is string && data.alertEmail.size() >= 3 && data.alertEmail.size() <= 200 &&
+        (!('alertPhone' in data) || (data.alertPhone is string && data.alertPhone.size() <= 32)) &&
+        data.notifyEmail is bool &&
+        data.notifySms is bool &&
+        isValidId(data.updatedByUid) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTriggerLog(data, triggerId) {
+      return data.keys().hasAll(['triggerId', 'eventType', 'actionLabel', 'recipientEmail', 'sendEmail', 'sendSms', 'emailStatus', 'smsStatus', 'subject', 'summary', 'triggeredByUid', 'createdAt']) &&
+        data.keys().hasOnly(['triggerId', 'eventType', 'actionLabel', 'contractCompanyId', 'contractCompanyName', 'partnerUids', 'clientId', 'clientLabel', 'recipientEmail', 'recipientPhone', 'sendEmail', 'sendSms', 'emailStatus', 'smsStatus', 'subject', 'summary', 'triggeredByUid', 'triggeredByEmail', 'createdAt']) &&
+        isValidId(data.triggerId) &&
+        data.triggerId == triggerId &&
+        data.eventType in ['new_client_signup', 'document_uploaded', 'checklist_verified', 'status_changed', 'partner_assigned', 'bt_assigned', 'session_scheduled', 'session_completed', 'session_billed', 'payment_recorded', 'payout_recorded', 'reminder_sent', 'custom_action'] &&
+        data.actionLabel is string && data.actionLabel.size() >= 1 && data.actionLabel.size() <= 120 &&
+        (!('contractCompanyId' in data) || (data.contractCompanyId is string && data.contractCompanyId.size() <= 128)) &&
+        (!('contractCompanyName' in data) || (data.contractCompanyName is string && data.contractCompanyName.size() <= 120)) &&
+        (!('partnerUids' in data) || (data.partnerUids is list && data.partnerUids.size() <= 20 && (data.partnerUids.size() == 0 || data.partnerUids[0] is string))) &&
+        (!('clientId' in data) || (data.clientId is string && data.clientId.size() <= 128)) &&
+        (!('clientLabel' in data) || (data.clientLabel is string && data.clientLabel.size() <= 120)) &&
+        data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 200 &&
+        (!('recipientPhone' in data) || (data.recipientPhone is string && data.recipientPhone.size() <= 32)) &&
+        data.sendEmail is bool &&
+        data.sendSms is bool &&
+        data.emailStatus in ['sent', 'queued_no_smtp', 'failed', 'disabled'] &&
+        data.smsStatus in ['sent', 'queued_no_sms', 'failed', 'disabled'] &&
+        data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 220 &&
+        data.summary is string && data.summary.size() >= 1 && data.summary.size() <= 2000 &&
+        isValidId(data.triggeredByUid) &&
+        (!('triggeredByEmail' in data) || (data.triggeredByEmail is string && data.triggeredByEmail.size() <= 200)) &&
+        data.createdAt is timestamp;
+    }
+
+    // Users Collection (PII + Role isolated)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(userId) && isOwner(userId) && isValidUser(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().role == 'parent' || isBootstrappedAdmin());
+      allow update: if isValidId(userId) && isValidUser(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (isOwner(userId) && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'preferredLanguage', 'phone', 'hipaaAcceptedAt', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Staff Roster (Non-financial directory)
+    match /staffRoster/{staffId} {
+      allow get: if isValidId(staffId) && isStaff();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(staffId) && isAdmin() && isValidStaffRoster(incoming(), staffId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(staffId) && isAdmin() && isValidStaffRoster(incoming(), staffId) &&
+        incoming().staffId == existing().staffId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(staffId) && isAdmin();
+    }
+
+    // BT Compensation (Admin-Only Financial Data)
+    match /btCompensation/{staffId} {
+      allow get: if isValidId(staffId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isValidId(staffId) && isAdmin() && isValidBtCompensation(incoming(), staffId) &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(staffId) && isAdmin();
+    }
+
+    // Contract Companies (Admin-Only Rates & Terms)
+    match /contractCompanies/{companyId} {
+      allow get: if isValidId(companyId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(companyId) && isAdmin() && isValidContractCompany(incoming(), companyId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(companyId) && isAdmin() && isValidContractCompany(incoming(), companyId) &&
+        incoming().companyId == existing().companyId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(companyId) && isAdmin();
+    }
+
+    // Non-Financial Partner Directory (For Signup Selection & Trigger Routing; Zero Rates/Margins)
+    match /partnerDirectory/{companyId} {
+      allow get: if isValidId(companyId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.active is bool;
+      allow create: if isValidId(companyId) && isAdmin() && isValidPartnerDirectory(incoming(), companyId) &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(companyId) && isValidPartnerDirectory(incoming(), companyId) &&
+        incoming().companyId == existing().companyId &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (isPartner() && partnerCompanyId() == companyId &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['notificationEmail', 'notificationPhone', 'autoTriggerOnSignup', 'autoTriggerOnActions', 'updatedAt']))
+        );
+      allow delete: if isValidId(companyId) && isAdmin();
+    }
+
+    // Clients Collection (Parent-Isolated, Staff-Authorized, Partner-Company-Isolated, Admin-Full)
+    match /clients/{clientId} {
+      allow get: if isValidId(clientId) && (
+        isAdmin() ||
+        (isSignedIn() && existing().parentUid == request.auth.uid) ||
+        (isStaff() && 'assignedStaffUids' in existing() && request.auth.uid in existing().assignedStaffUids) ||
+        (isPartner() && 'contractCompanyId' in existing() && existing().contractCompanyId == partnerCompanyId() &&
+          'partnerUids' in existing() && request.auth.uid in existing().partnerUids)
+      );
+      allow list: if isBootstrappedAdmin() ||
+        (isSignedIn() && resource.data.parentUid == request.auth.uid) ||
+        (isSignedIn() && 'assignedStaffUids' in resource.data && request.auth.uid in resource.data.assignedStaffUids) ||
+        (isSignedIn() && 'partnerUids' in resource.data && request.auth.uid in resource.data.partnerUids);
+      allow create: if isValidId(clientId) && isSignedIn() && isValidClient(incoming(), clientId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isAdmin() || (incoming().parentUid == request.auth.uid && incoming().status == 'intake_submitted'));
+      allow update: if isValidId(clientId) && isSignedIn() && isValidClient(incoming(), clientId) &&
+        incoming().clientId == existing().clientId &&
+        incoming().parentUid == existing().parentUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (isStaff() && 'assignedStaffUids' in existing() && request.auth.uid in existing().assignedStaffUids &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'checklist', 'assignedBtId', 'assignedBtName', 'notes', 'updatedAt'])) ||
+          (isPartner() && 'contractCompanyId' in existing() && existing().contractCompanyId == partnerCompanyId() &&
+            'partnerUids' in existing() && request.auth.uid in existing().partnerUids &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'checklist', 'notes', 'updatedAt'])) ||
+          (existing().parentUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['parentPhone', 'borough', 'preferredLanguage', 'checklist', 'notes', 'updatedAt']))
+        );
+      allow delete: if isValidId(clientId) && isAdmin();
+
+      // Master Gate Subcollection: Client Documents
+      match /documents/{documentId} {
+        allow get: if isValidId(clientId) && isValidId(documentId) && (
+          isAdmin() ||
+          (isSignedIn() && get(/databases/$(database)/documents/clients/$(clientId)).data.parentUid == request.auth.uid) ||
+          (isStaff() && 'assignedStaffUids' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+            request.auth.uid in get(/databases/$(database)/documents/clients/$(clientId)).data.assignedStaffUids) ||
+          (isPartner() && 'contractCompanyId' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+            get(/databases/$(database)/documents/clients/$(clientId)).data.contractCompanyId == partnerCompanyId() &&
+            'partnerUids' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+            request.auth.uid in get(/databases/$(database)/documents/clients/$(clientId)).data.partnerUids)
+        );
+        allow list: if isBootstrappedAdmin() ||
+          (isSignedIn() && resource.data.parentUid == request.auth.uid) ||
+          (isSignedIn() && 'partnerUids' in resource.data && request.auth.uid in resource.data.partnerUids);
+        allow create: if isValidId(clientId) && isValidId(documentId) && isSignedIn() &&
+          isValidClientDocument(incoming(), clientId, documentId) &&
+          incoming().uploadedByUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          exists(/databases/$(database)/documents/clients/$(clientId)) && (
+            isAdmin() ||
+            (get(/databases/$(database)/documents/clients/$(clientId)).data.parentUid == request.auth.uid &&
+              incoming().parentUid == request.auth.uid &&
+              incoming().verificationStatus == 'pending_review')
+          );
+        allow update: if isValidId(clientId) && isValidId(documentId) && isSignedIn() &&
+          isValidClientDocument(incoming(), clientId, documentId) &&
+          incoming().documentId == existing().documentId &&
+          incoming().clientId == existing().clientId &&
+          incoming().parentUid == existing().parentUid &&
+          incoming().uploadedByUid == existing().uploadedByUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time && (
+            isAdmin() ||
+            (isStaff() && 'assignedStaffUids' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+              request.auth.uid in get(/databases/$(database)/documents/clients/$(clientId)).data.assignedStaffUids &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'summary', 'updatedAt'])) ||
+            (isPartner() && 'contractCompanyId' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+              get(/databases/$(database)/documents/clients/$(clientId)).data.contractCompanyId == partnerCompanyId() &&
+              'partnerUids' in get(/databases/$(database)/documents/clients/$(clientId)).data &&
+              request.auth.uid in get(/databases/$(database)/documents/clients/$(clientId)).data.partnerUids &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'summary', 'updatedAt']))
+          );
+        allow delete: if isValidId(clientId) && isValidId(documentId) && isAdmin();
+      }
+    }
+
+    // Sessions Collection (Scheduled vs Approved Billable Hours)
+    match /sessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (
+        isAdmin() ||
+        (isSignedIn() && existing().parentUid == request.auth.uid) ||
+        (isStaff() && 'btUid' in existing() && existing().btUid == request.auth.uid) ||
+        (isPartner() && 'contractCompanyId' in existing() && existing().contractCompanyId == partnerCompanyId() &&
+          'partnerUids' in existing() && request.auth.uid in existing().partnerUids)
+      );
+      allow list: if isBootstrappedAdmin() ||
+        (isSignedIn() && resource.data.parentUid == request.auth.uid) ||
+        (isSignedIn() && 'btUid' in resource.data && resource.data.btUid == request.auth.uid) ||
+        (isSignedIn() && 'partnerUids' in resource.data && request.auth.uid in resource.data.partnerUids);
+      allow create: if isValidId(sessionId) && isStaff() && isValidSession(incoming(), sessionId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/clients/$(incoming().clientId));
+      allow update: if isValidId(sessionId) && isStaff() && isValidSession(incoming(), sessionId) &&
+        incoming().sessionId == existing().sessionId &&
+        incoming().clientId == existing().clientId &&
+        incoming().parentUid == existing().parentUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          ('btUid' in existing() && existing().btUid == request.auth.uid &&
+            existing().status != 'approved_billable' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt']) &&
+            incoming().status in ['scheduled', 'completed', 'cancelled'])
+        );
+      allow delete: if isValidId(sessionId) && isAdmin();
+    }
+
+    // Partner Payments (Admin-Only)
+    match /partnerPayments/{paymentId} {
+      allow get: if isValidId(paymentId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(paymentId) && isAdmin() && isValidPartnerPayment(incoming(), paymentId) &&
+        incoming().recordedByUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(paymentId) && isAdmin() && isValidPartnerPayment(incoming(), paymentId) &&
+        incoming().paymentId == existing().paymentId &&
+        incoming().recordedByUid == existing().recordedByUid &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(paymentId) && isAdmin();
+    }
+
+    // BT Payouts (Admin-Only)
+    match /btPayouts/{payoutId} {
+      allow get: if isValidId(payoutId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(payoutId) && isAdmin() && isValidBtPayout(incoming(), payoutId) &&
+        incoming().recordedByUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(payoutId) && isAdmin() && isValidBtPayout(incoming(), payoutId) &&
+        incoming().payoutId == existing().payoutId &&
+        incoming().recordedByUid == existing().recordedByUid &&
+        incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(payoutId) && isAdmin();
+    }
+
+    // Public Inquiries (Admin-Read, Server-Created)
+    match /publicInquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow write: if false;
+    }
+
+    // Automated Reminders
+    match /reminders/{reminderId} {
+      allow get: if isValidId(reminderId) && (
+        isAdmin() ||
+        (isSignedIn() && 'targetUid' in existing() && existing().targetUid == request.auth.uid)
+      );
+      allow list: if isBootstrappedAdmin() || (isSignedIn() && 'targetUid' in resource.data && resource.data.targetUid == request.auth.uid);
+      allow create: if isValidId(reminderId) && isStaff() && isValidReminder(incoming(), reminderId) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(reminderId) && isSignedIn() && isValidReminder(incoming(), reminderId) &&
+        incoming().reminderId == existing().reminderId &&
+        incoming().createdAt == existing().createdAt && (
+          isAdmin() ||
+          ('targetUid' in existing() && existing().targetUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+            incoming().status == 'acknowledged')
+        );
+      allow delete: if isValidId(reminderId) && isAdmin();
+    }
+
+    // 48-Hour Unbilled Therapy Session Alerts (Admin-Only Financial Monitoring)
+    match /billingAlerts/{alertId} {
+      allow get: if isValidId(alertId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(alertId) && isAdmin() && isValidBillingAlert(incoming(), alertId) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(alertId) && isAdmin() && isValidBillingAlert(incoming(), alertId) &&
+        incoming().alertId == existing().alertId &&
+        incoming().sessionId == existing().sessionId &&
+        incoming().clientId == existing().clientId &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(alertId) && isAdmin();
+    }
+
+    // Admin Alert Delivery Settings (Email & SMS Phone Preferences)
+    match /adminSettings/{settingId} {
+      allow get: if isValidId(settingId) && isAdmin();
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isValidId(settingId) && isAdmin() && isValidAdminAlertSettings(incoming(), settingId) &&
+        incoming().updatedByUid == request.auth.uid &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    // Action Email & Text Trigger Audit Logs (Partner-Company Isolated, Admin-Full)
+    match /triggerLogs/{triggerId} {
+      allow get: if isValidId(triggerId) && (
+        isAdmin() ||
+        (isSignedIn() && existing().triggeredByUid == request.auth.uid) ||
+        (isPartner() && 'contractCompanyId' in existing() && existing().contractCompanyId == partnerCompanyId() &&
+          'partnerUids' in existing() && request.auth.uid in existing().partnerUids)
+      );
+      allow list: if isBootstrappedAdmin() ||
+        (isSignedIn() && resource.data.triggeredByUid == request.auth.uid) ||
+        (isSignedIn() && 'partnerUids' in resource.data && request.auth.uid in resource.data.partnerUids);
+      allow create: if isValidId(triggerId) && isSignedIn() && isValidTriggerLog(incoming(), triggerId) &&
+        incoming().triggeredByUid == request.auth.uid &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(triggerId) && isAdmin();
+    }
+  }
+}

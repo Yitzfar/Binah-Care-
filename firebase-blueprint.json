@@ -1,0 +1,402 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile with role-based access control and HIPAA consent metadata.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 200 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["parent", "staff", "partner", "admin"] },
+        "preferredLanguage": { "type": "string", "enum": ["en", "yi"] },
+        "phone": { "type": "string", "maxLength": 32 },
+        "hipaaAcceptedAt": { "type": "string", "maxLength": 64 },
+        "assignedClientIds": { "type": "array" },
+        "contractCompanyId": { "type": "string", "maxLength": 128 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "displayName", "role", "preferredLanguage", "createdAt", "updatedAt"]
+    },
+    "StaffRosterEntry": {
+      "title": "StaffRosterEntry",
+      "description": "Non-financial roster profile for Behavior Technicians and care coordinators.",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "uid": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "title": { "type": "string", "maxLength": 80 },
+        "languages": { "type": "array" },
+        "borough": { "type": "string", "maxLength": 80 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["staffId", "displayName", "title", "active", "createdAt", "updatedAt"]
+    },
+    "BtCompensation": {
+      "title": "BtCompensation",
+      "description": "Admin-only compensation rates for Behavior Technicians.",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "btName": { "type": "string", "maxLength": 120 },
+        "hourlyPayRate": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["staffId", "btName", "hourlyPayRate", "updatedAt"]
+    },
+    "ContractCompany": {
+      "title": "ContractCompany",
+      "description": "Partner ABA contract agency such as El Heim, Hilf, or future expanded partners.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "contactName": { "type": "string", "maxLength": 120 },
+        "contactEmail": { "type": "string", "maxLength": 200 },
+        "contactPhone": { "type": "string", "maxLength": 32 },
+        "billingRatePerHour": { "type": "number" },
+        "defaultBtPayPerHour": { "type": "number" },
+        "paymentTerms": { "type": "string", "maxLength": 120 },
+        "partnerUids": { "type": "array" },
+        "autoTriggerOnSignup": { "type": "boolean" },
+        "autoTriggerOnActions": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "billingRatePerHour", "defaultBtPayPerHour", "active", "createdAt", "updatedAt"]
+    },
+    "PartnerDirectoryEntry": {
+      "title": "PartnerDirectoryEntry",
+      "description": "Non-financial contract company directory entry with notification targets and trigger defaults.",
+      "type": "object",
+      "properties": {
+        "companyId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "notificationEmail": { "type": "string", "maxLength": 200 },
+        "notificationPhone": { "type": "string", "maxLength": 32 },
+        "partnerUids": { "type": "array" },
+        "autoTriggerOnSignup": { "type": "boolean" },
+        "autoTriggerOnActions": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["companyId", "name", "autoTriggerOnSignup", "autoTriggerOnActions", "active", "updatedAt"]
+    },
+    "ClientApplication": {
+      "title": "ClientApplication",
+      "description": "Child ABA coordination intake record and missing-document checklist.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "parentUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "parentName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "parentEmail": { "type": "string", "maxLength": 200 },
+        "parentPhone": { "type": "string", "maxLength": 32 },
+        "childFirstName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "childLastName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "childDob": { "type": "string", "maxLength": 20 },
+        "borough": { "type": "string", "maxLength": 80 },
+        "preferredLanguage": { "type": "string", "enum": ["en", "yi"] },
+        "contractCompanyId": { "type": "string", "maxLength": 128 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "partnerUids": { "type": "array" },
+        "assignedBtId": { "type": "string", "maxLength": 128 },
+        "assignedBtName": { "type": "string", "maxLength": 120 },
+        "assignedStaffUids": { "type": "array" },
+        "status": {
+          "type": "string",
+          "enum": ["intake_submitted", "document_review", "insurance_auth", "bt_matching", "active_services"]
+        },
+        "authorizedWeeklyHours": { "type": "number" },
+        "checklist": { "type": "object" },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "parentUid", "parentName", "childFirstName", "childLastName", "preferredLanguage", "status", "checklist", "createdAt", "updatedAt"]
+    },
+    "ClientDocument": {
+      "title": "ClientDocument",
+      "description": "Uploaded parent intake document with AI-extracted clinical metadata.",
+      "type": "object",
+      "properties": {
+        "documentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "clientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "parentUid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "partnerUids": { "type": "array" },
+        "docType": { "type": "string", "enum": ["rx", "evaluation", "insurance", "iep", "hipaaConsent", "other"] },
+        "fileName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "mimeType": { "type": "string", "maxLength": 100 },
+        "summary": { "type": "string", "maxLength": 1500 },
+        "extractedFields": { "type": "object" },
+        "verificationStatus": { "type": "string", "enum": ["pending_review", "verified", "needs_resubmission"] },
+        "uploadedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["documentId", "clientId", "parentUid", "docType", "fileName", "verificationStatus", "uploadedByUid", "createdAt", "updatedAt"]
+    },
+    "TherapySession": {
+      "title": "TherapySession",
+      "description": "ABA therapy schedule entry in America/New_York 12-hour AM/PM format tracking scheduled vs approved billable hours separately.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "clientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "parentUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "contractCompanyId": { "type": "string", "maxLength": 128 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "partnerUids": { "type": "array" },
+        "btId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "btUid": { "type": "string", "maxLength": 128 },
+        "btName": { "type": "string", "maxLength": 120 },
+        "dateEt": { "type": "string", "maxLength": 20 },
+        "startTimeEt": { "type": "string", "maxLength": 20 },
+        "endTimeEt": { "type": "string", "maxLength": 20 },
+        "scheduledHours": { "type": "number" },
+        "approvedBillableHours": { "type": "number" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "approved_billable", "cancelled"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "approvedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "clientId", "parentUid", "btId", "dateEt", "startTimeEt", "endTimeEt", "scheduledHours", "approvedBillableHours", "status", "createdAt", "updatedAt"]
+    },
+    "PartnerPayment": {
+      "title": "PartnerPayment",
+      "description": "Admin-only record of incoming payments from El Heim, Hilf, and other contract partners.",
+      "type": "object",
+      "properties": {
+        "paymentId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "contractCompanyId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "amount": { "type": "number" },
+        "periodLabel": { "type": "string", "maxLength": 80 },
+        "paymentDateEt": { "type": "string", "maxLength": 20 },
+        "referenceNumber": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string", "enum": ["received", "pending"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "recordedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["paymentId", "contractCompanyId", "contractCompanyName", "amount", "paymentDateEt", "status", "recordedByUid", "createdAt"]
+    },
+    "BtPayout": {
+      "title": "BtPayout",
+      "description": "Admin-only record of Behavior Technician compensation payouts.",
+      "type": "object",
+      "properties": {
+        "payoutId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "btId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "btName": { "type": "string", "maxLength": 120 },
+        "hoursPaid": { "type": "number" },
+        "hourlyRate": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "periodLabel": { "type": "string", "maxLength": 80 },
+        "paymentDateEt": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["paid", "scheduled"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "recordedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["payoutId", "btId", "btName", "hoursPaid", "hourlyRate", "totalAmount", "paymentDateEt", "status", "recordedByUid", "createdAt"]
+    },
+    "PublicInquiry": {
+      "title": "PublicInquiry",
+      "description": "Public website family intake and contact inquiry.",
+      "type": "object",
+      "properties": {
+        "inquiryId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "parentName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "email": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "childAge": { "type": "string", "maxLength": 32 },
+        "preferredLanguage": { "type": "string", "enum": ["en", "yi"] },
+        "borough": { "type": "string", "maxLength": 80 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["new", "contacted", "converted"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["inquiryId", "parentName", "email", "preferredLanguage", "status", "createdAt"]
+    },
+    "AutomatedReminder": {
+      "title": "AutomatedReminder",
+      "description": "AI-generated bilingual reminder for missing documents or session billing sign-off.",
+      "type": "object",
+      "properties": {
+        "reminderId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "targetUid": { "type": "string", "maxLength": 128 },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "recipientRole": { "type": "string", "enum": ["parent", "staff"] },
+        "language": { "type": "string", "enum": ["en", "yi"] },
+        "subject": { "type": "string", "maxLength": 200 },
+        "body": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["sent", "acknowledged"] },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reminderId", "clientId", "recipientRole", "language", "subject", "body", "status", "createdByUid", "createdAt"]
+    },
+    "BillingAlert": {
+      "title": "BillingAlert",
+      "description": "Admin-only alert triggered when a therapy session remains unbilled for 48+ hours after ending in Eastern Time.",
+      "type": "object",
+      "properties": {
+        "alertId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "sessionId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "clientId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "clientName": { "type": "string", "maxLength": 160 },
+        "btName": { "type": "string", "maxLength": 120 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "sessionDateEt": { "type": "string", "maxLength": 20 },
+        "sessionTimeRangeEt": { "type": "string", "maxLength": 45 },
+        "scheduledHours": { "type": "number" },
+        "estimatedRevenue": { "type": "number" },
+        "hoursOverdue": { "type": "number" },
+        "recipientEmail": { "type": "string", "maxLength": 200 },
+        "recipientPhone": { "type": "string", "maxLength": 32 },
+        "channel": { "type": "string", "enum": ["dashboard", "email_and_dashboard", "sms_and_dashboard", "email_sms_and_dashboard"] },
+        "emailStatus": { "type": "string", "enum": ["sent", "queued_no_smtp", "failed", "disabled"] },
+        "emailNote": { "type": "string", "maxLength": 300 },
+        "smsStatus": { "type": "string", "enum": ["sent", "queued_no_sms", "failed", "disabled"] },
+        "smsNote": { "type": "string", "maxLength": 300 },
+        "status": { "type": "string", "enum": ["active", "acknowledged", "resolved"] },
+        "lastNotifiedAt": { "type": "string", "maxLength": 64 },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["alertId", "sessionId", "clientId", "sessionDateEt", "scheduledHours", "estimatedRevenue", "hoursOverdue", "recipientEmail", "channel", "emailStatus", "status", "createdByUid", "createdAt", "updatedAt"]
+    },
+    "AdminAlertSettings": {
+      "title": "AdminAlertSettings",
+      "description": "Admin notification preferences for 48-hour unbilled therapy session alerts (Email and SMS text).",
+      "type": "object",
+      "properties": {
+        "settingId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "alertEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "alertPhone": { "type": "string", "maxLength": 32 },
+        "notifyEmail": { "type": "boolean" },
+        "notifySms": { "type": "boolean" },
+        "updatedByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["settingId", "alertEmail", "notifyEmail", "notifySms", "updatedByUid", "updatedAt"]
+    },
+    "TriggerLog": {
+      "title": "TriggerLog",
+      "description": "Audit log of email and SMS action triggers dispatched to contract companies, parents, and admins.",
+      "type": "object",
+      "properties": {
+        "triggerId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "new_client_signup",
+            "document_uploaded",
+            "checklist_verified",
+            "status_changed",
+            "partner_assigned",
+            "bt_assigned",
+            "session_scheduled",
+            "session_completed",
+            "session_billed",
+            "payment_recorded",
+            "payout_recorded",
+            "reminder_sent",
+            "custom_action"
+          ]
+        },
+        "actionLabel": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "contractCompanyId": { "type": "string", "maxLength": 128 },
+        "contractCompanyName": { "type": "string", "maxLength": 120 },
+        "partnerUids": { "type": "array" },
+        "clientId": { "type": "string", "maxLength": 128 },
+        "clientLabel": { "type": "string", "maxLength": 120 },
+        "recipientEmail": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "recipientPhone": { "type": "string", "maxLength": 32 },
+        "sendEmail": { "type": "boolean" },
+        "sendSms": { "type": "boolean" },
+        "emailStatus": { "type": "string", "enum": ["sent", "queued_no_smtp", "failed", "disabled"] },
+        "smsStatus": { "type": "string", "enum": ["sent", "queued_no_sms", "failed", "disabled"] },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "triggeredByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "triggeredByEmail": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["triggerId", "eventType", "actionLabel", "recipientEmail", "sendEmail", "sendSms", "emailStatus", "smsStatus", "subject", "triggeredByUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User accounts and role permissions isolated by UID."
+    },
+    "/staffRoster/{staffId}": {
+      "schema": { "$ref": "#/entities/StaffRosterEntry" },
+      "description": "Behavior Technician and coordinator directory without financial rates."
+    },
+    "/btCompensation/{staffId}": {
+      "schema": { "$ref": "#/entities/BtCompensation" },
+      "description": "Admin-only Behavior Technician hourly pay rates."
+    },
+    "/contractCompanies/{companyId}": {
+      "schema": { "$ref": "#/entities/ContractCompany" },
+      "description": "Admin-only partner contract companies and hourly billing/payout rates."
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/ClientApplication" },
+      "description": "Child ABA applications and care coordination records."
+    },
+    "/clients/{clientId}/documents/{documentId}": {
+      "schema": { "$ref": "#/entities/ClientDocument" },
+      "description": "Parent-uploaded and AI-analyzed child documents."
+    },
+    "/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/TherapySession" },
+      "description": "Scheduled and approved billable ABA therapy sessions in Eastern Time."
+    },
+    "/partnerPayments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PartnerPayment" },
+      "description": "Admin-only incoming payments from El Heim, Hilf, and partner companies."
+    },
+    "/btPayouts/{payoutId}": {
+      "schema": { "$ref": "#/entities/BtPayout" },
+      "description": "Admin-only BT payroll payouts."
+    },
+    "/publicInquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/PublicInquiry" },
+      "description": "Public contact and registration leads."
+    },
+    "/reminders/{reminderId}": {
+      "schema": { "$ref": "#/entities/AutomatedReminder" },
+      "description": "AI-generated bilingual follow-up reminders."
+    },
+    "/billingAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/BillingAlert" },
+      "description": "Admin-only 48-hour unbilled therapy session alerts and email/SMS dispatch tracking."
+    },
+    "/adminSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/AdminAlertSettings" },
+      "description": "Admin-only notification settings for email and SMS text alerts."
+    },
+    "/partnerDirectory/{companyId}": {
+      "schema": { "$ref": "#/entities/PartnerDirectoryEntry" },
+      "description": "Non-financial contract company directory and notification trigger configuration."
+    },
+    "/triggerLogs/{triggerId}": {
+      "schema": { "$ref": "#/entities/TriggerLog" },
+      "description": "Email and SMS action trigger dispatch log isolated by admin, partner company, and triggering user."
+    }
+  }
+}
